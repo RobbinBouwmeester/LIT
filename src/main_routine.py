@@ -1,3 +1,4 @@
+import time
 import matplotlib
 import datetime
 matplotlib.use('TkAgg')
@@ -42,22 +43,16 @@ def plot_aligned_spec(theoretical_spectrum_mz,
                       figwidth=20,
                       figheigth=15,
                       nomalize_exp=True):
-    t0 = time()
 
     if nomalize_exp: experimental_spectrum_intens = [i/max(experimental_spectrum_intens) for i in experimental_spectrum_intens]
-    #print("time to normalize: %s" % (time()-t0))
 
-    #t0 = time()
     plt.figure(figsize=(figwidth, figheigth),dpi=250)
     plt.grid(True,ls="solid")
     plt.scatter(experimental_spectrum_mz,experimental_spectrum_intens,color="royalblue")
     plt.scatter(theoretical_spectrum_mz,[(esi/100.0)*-1 for esi in theoretical_spectrum_intens],color="Tomato")
-    #print("time to scatter: %s" % (time()-t0))
 
-    #t0 = time()
     plt.scatter([0],[-2.0],color="white")
     plt.yticks(np.arange(-1.0, 1.01, 0.2))
-    #print("time to add y-ticks: %s" % (time()-t0))
 
     #t0 = time()
     max_mz = max([max(experimental_spectrum_mz),max(theoretical_spectrum_mz)])+50.0
@@ -67,32 +62,18 @@ def plot_aligned_spec(theoretical_spectrum_mz,
 
     ax.vlines(experimental_spectrum_mz,[0.0]*len(experimental_spectrum_intens),experimental_spectrum_intens)
     ax.vlines(theoretical_spectrum_mz,[0.0]*len(theoretical_spectrum_intens),[(tsi/100.0)*-1 for tsi in theoretical_spectrum_intens])
-    #print("time to plot vertical lines: %s" % (time()-t0))
-    
-    #for x1,y1 in zip(,experimental_spectrum_intens):
-    #    plt.plot((x1, x1), (0.0,y1), 'k-',color="black")
-    #
-    #for x1,y1 in zip(theoretical_spectrum_mz,theoretical_spectrum_intens):
-    #    plt.plot((x1, x1), (0.0,(y1/100.0)*-1), 'k-',color="black")
-    #
 
-    #t0 = time()
     if len(annotations) > 0:
         for mz,text in annotations:
             ax.annotate(text, xy=(mz, -1.05), xytext=((mz/(max_mz+max_mz*0.02))+(figwidth/2000),0.2),
                     arrowprops=dict(facecolor='grey', shrink=0.01, width = 0.01,headwidth = 0),
                     textcoords="axes fraction", rotation=90)
-    print("time to add annotation: %s" % (time()-t0))
+                    
     plt.xlabel("m/z")
     plt.ylabel("Normalized intensity")
 
-    #plt.axvline(experimental_spectrum_mz,color="blue") #,ymax=experimental_spectrum_intens
-    #plt.axvline(theoretical_spectrum_mz,color="red") #,ymax=[(esi/100.0)*-1 for esi in theoretical_spectrum_intens]
-
-    #t0 = time()
     plt.savefig("%s" % (fname), format='pdf') #, bbox_inches='tight'
     plt.close()
-    print("time to save and close: %s" % (time()-t0))
 
 def moving_average(a, n=2):
     ret = np.cumsum(a, dtype=float)
@@ -101,7 +82,7 @@ def moving_average(a, n=2):
 
 def get_peaks(xic_list,peak_thres=0.1,peak_min_dist=1):
     peak_indexes = [0]
-	#peak_indexes = peakutils.indexes([i for t,i in xic_list], thres=peak_thres, min_dist=peak_min_dist)
+    #peak_indexes = peakutils.indexes([i for t,i in xic_list], thres=peak_thres, min_dist=peak_min_dist)
     #print([peak_indexes])
     ret_list_peak = [xic_list[idx] for idx in peak_indexes]
     #ret_list_peak = [[coord[0],coord[1]] for index,coord in enumerate(xic_list) if index in peak_indexes]
@@ -232,7 +213,7 @@ def perform_search(mzml_file,exp,lower_limit_mz,upper_limit_mz,scoring_funct,
                            aligned_peaks,
                            candidate[2],
                            exp.scan_to_spectrum[exp.ms2_to_ms1[scan_num]].scan_start_time])
-    
+            #print(results)
     print("++++++++++++++++++++++")
     print(lower_limit_mz,upper_limit_mz)
     print("++++++++++++++++++++++")
@@ -247,8 +228,8 @@ def main_routine_func(ms1_error = 5, ms2_error = 20, ms_tol_ppm = True,
         min_intensity_explained=5.0,min_hypergeom=2.0,
         filter_head_spec=True,filter_fa_spec=True,
         rt_file = "rt_pred/MASSTRPLAN_preds_l3_116.csv",mzml_files_loc="",
-        db_file = "filtered_db_noether_backup.msp",
-        n_chunks = 32, n_cores = 8, gui=None):
+        db_file = "db/filtered_db_noether_backup.msp",
+        n_chunks = 32, n_cores = 8, gui=None,output_dir=""):
 
     if os.path.isfile(mzml_files_loc):
         mzml_files = [mzml_files_loc]
@@ -286,7 +267,8 @@ def main_routine_func(ms1_error = 5, ms2_error = 20, ms_tol_ppm = True,
     xic_movingavg_length = 4
     
     for mzml_file in mzml_files:
-        base_path = os.path.join(os.path.abspath(__file__),".".join(mzml_file.split(".")[:-1]))
+        if len(output_dir) == 0: base_path = os.path.join(os.path.abspath(__file__),".".join(mzml_file.split(".")[:-1]))
+        else: base_path = output_dir
 
         results = IdentificationResults()
         if not os.path.exists(base_path):
@@ -310,7 +292,7 @@ def main_routine_func(ms1_error = 5, ms2_error = 20, ms_tol_ppm = True,
 
         for lower_limit_mz,cr in chunk_results.items():
             tot_chunk_count += 1
-            if gui: gui.progress_search.setProperty("value", ((tot_chunk_count/(float(n_chunks)*len(mzml_files)))*100))
+            if gui: gui.update_progress2((tot_chunk_count/(float(n_chunks)*len(mzml_files)))*100)
             for chunked_res in cr.get():
                 results.add_result(*chunked_res)
                 
@@ -319,7 +301,11 @@ def main_routine_func(ms1_error = 5, ms2_error = 20, ms_tol_ppm = True,
 
         # TODO change name "res" is stupid; change to res_ranked....
         res,ranked_lipids = results.get_best_ranked_score()
-
+        print(base_path)
+        print(results)
+        print(res)
+        
+        
         results.write_res_to_file(outfile_name=os.path.join(base_path,"ranked_res.csv"))
         results.write_res_to_file(outfile_name=os.path.join(base_path,"best_res.csv"),best=True)
         
@@ -360,7 +346,7 @@ def main_routine_func(ms1_error = 5, ms2_error = 20, ms_tol_ppm = True,
                 plt.close()
 
                 prepared_plotting_vars.append([mz_list_entry,intens_list_entry,scan_num,n_exp,n_lip,aligned_peaks])
-                
+        plot_ms2 = True
         if plot_ms2:
             pool = Pool(processes=8)
             chunk_results = {}
@@ -387,4 +373,4 @@ def main_routine_func(ms1_error = 5, ms2_error = 20, ms_tol_ppm = True,
         outfile_high_confid.flush()
 
 if __name__ == "__main__":
-    main(mzml_files_loc = "C:/Users/asus/Documents/mzml/")
+    main_routine_func(mzml_files_loc = "C:/Users/davy/Documents/GitHub/LIT/src/mzml_example/")

@@ -16,9 +16,11 @@ from main_routine import main_routine_func
 class Dummy(): pass
 
 class ThreadSearch(QtCore.QThread):
+    update_progress = pyqtSignal(float)
+    
     def __init__(self,ms1_error, ms2_error, ms_tol_ppm, plot_XIC, plot_ms2, aggregate_results, search_negative_ions, search_positive_ions, 
                     score_ms1_error,score_ms2_error,score_hypergeom,score_intensity_expl,score_pred_tr,min_intensity_explained,min_hypergeom,
-                    rt_file,mzml_files_loc,class_fragments,fa_fragments,db_file,gui,parent = None):
+                    rt_file,mzml_files_loc,class_fragments,fa_fragments,db_file,output_dir,gui,parent = None):
         super(ThreadSearch,self).__init__(parent)
         self.ms1_error = ms1_error
         self.ms2_error = ms2_error
@@ -40,8 +42,12 @@ class ThreadSearch(QtCore.QThread):
         self.class_fragments = class_fragments
         self.fa_fragments = fa_fragments
         self.db_file = db_file
+        self.output_dir = output_dir
         self.gui = gui
-    
+
+    def __del__(self):
+        self.wait()
+
     def run(self):
         main_routine_func(ms1_error = self.ms1_error,
             ms2_error = self.ms2_error,
@@ -63,8 +69,38 @@ class ThreadSearch(QtCore.QThread):
             filter_head_spec=self.class_fragments,
             filter_fa_spec=self.fa_fragments,
             db_file=self.db_file,
-            gui = self.gui)
+            output_dir=self.output_dir,
+            gui = self)
+    
+    def update_progress2(self,perc):
+        self.update_progress.emit(perc)
+    
+class getFeatures(QThread):
+    update_progress = pyqtSignal(float)
+    
+    def __init__(self,input_smiles,output_predictions,input_library,gui_object):
+        QThread.__init__(self)
+        self.input_smiles = input_smiles
+        self.output_predictions = output_predictions
+        self.input_library = input_library
+        self.gui_object = gui_object
+    
+    def __del__(self):
+        self.wait()
 
+    def run(self):
+        infile = open(self.input_smiles)
+        if len(infile.readline().split(",")) > 2:
+            get_features(infile_name=self.input_smiles,outfile_name=self.output_predictions,
+                    library_file=self.input_library,id_index=0,mol_index=1,time_index=2,gui_object=self) #.gui_object
+        else:
+            get_features(infile_name=self.input_smiles,outfile_name=self.output_predictions,
+                    library_file=self.input_library,id_index=0,mol_index=1,time_index=None,gui_object=self) #.gui_object
+    
+    def update_progress2(self,perc):
+        self.update_progress.emit(perc)
+
+            
 class OutLog:
     def __init__(self, edit, out=None, color=None):
         """(edit, out=None, color=None) -> can write stdout, stderr to a
@@ -167,9 +203,12 @@ class Ui_Dialog(object):
         self.threadsearch = ThreadSearch(ms1_tolerance, ms2_tolerance, ppm, xic_plot, ms2_plot, aggregate_results,
                                             negative, positive, score_ms1_tolerance, score_ms2_tolerance, hypergeo_score,
                                             intensity, score_tr_pred, threshold_intensity, threshold_hypergeo_score,
-                                            tr_pred,mzml,class_fragments,fa_fragments,db_file,self)
+                                            tr_pred,mzml,class_fragments,fa_fragments,db_file,output_dir,self)
         self.threadsearch.start()
-        
+        self.threadsearch.update_progress.connect(self.updateProgressBar)
+
+    def updateProgressBar(self,val):
+        self.progress_search.setProperty("value", val)        
     
     def run_db_creation(self):
         input_config_file = self.inputfield_input_config.displayText()
@@ -514,7 +553,18 @@ class Ui_Dialog(object):
         self.browse_tr_pred.clicked.connect(partial(self.browse_for_file,self.browse_tr_pred))
         self.browse_native_lipids.clicked.connect(partial(self.browse_for_file,self.browse_native_lipids))
         self.browse_output_dir.clicked.connect(partial(self.browse_for_file,self.inputfield_output_dir,use_dir=True))
-                
+        
+        #self.inputfield_mzml.setText("C:/Users/davy/Documents/GitHub/LIT/src/mzml_example/test.mzML")
+        #self.inputfield_tr_pred.setText("")
+        #self.inputfield_native_lipids.setText("")
+        #self.inputfield_output_dir.setText("C:/Users/davy/Documents/GitHub/LIT/src/results/")
+        #self.inputfield_db_file.setText("C:/Users/davy/Documents/GitHub/LIT/src/db/filtered_db_noether_backup.msp")
+        #self.inputfield_ms1_tolerance.setText("5")
+        #self.inputfield_ms2_tolerance.setText("20")
+        #self.inputfield_threshold_intensity.setText("1")
+        #self.inputfield_threshold_hypergeo_score.setText("1")
+        
+        
         self.retranslateUi(Dialog)
         self.tabWidget.setCurrentIndex(0)
         QtCore.QMetaObject.connectSlotsByName(Dialog)
