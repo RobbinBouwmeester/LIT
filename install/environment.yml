@@ -30,7 +30,6 @@ dependencies:
 - libxslt=1.1.32=h89dfad8_0
 - lxml=4.2.5=py27h31b8cb8_0
 - matplotlib=2.2.2=py27h8803d4e_1
-- mkl=2019.0=118
 - mkl_fft=1.0.6=py27hac4a418_0
 - numpy=1.15.3=py27hbe4291b_0
 - numpy-base=1.15.3=py27h2753ae9_0

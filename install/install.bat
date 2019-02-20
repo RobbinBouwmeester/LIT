@@ -1,3 +1,3 @@
 conda env create -f environment.yml & ^
-conda activate LIT & ^
+activate LIT & ^
 pip install exrex
